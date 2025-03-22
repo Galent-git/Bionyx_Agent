@@ -1,80 +1,73 @@
-# core.py
-from modules import ChatModule, FunFactModule, AbilitiesModule
+
 from memory import MemoryManager
+ # core.py
+import os
+import importlib.util
+from module_base import BionyxModule
 
 class BionyxCore:
     def __init__(self, name="Bionyx"):
         self.name = name
         self.modules = []
-        self.memory = MemoryManager()  # For storing conversation history or other data
 
     def boot(self):
-        print(f"{self.name}: Hello! I’m {self.name}—your new AI friend!")
-        print("I’m eager to get started. Please choose an option below!")
-        self.show_menu()
+        print(f"{self.name}: Hello! I'm {self.name} – your modular AI companion.")
+        self.load_modules()  # Dynamically load all modules in the 'modules' folder.
+        print("Type 'help' to list available commands, or 'exit' to quit.")
 
-    def register_module(self, module):
-        self.modules.append(module)
+    def load_modules(self, modules_folder="modules"):
+        """
+        Dynamically scans the given folder for .py files,
+        imports them, and registers any classes that subclass BionyxModule.
+        """
+        for filename in os.listdir(modules_folder):
+            if filename.endswith(".py") and not filename.startswith("__"):
+                module_path = os.path.join(modules_folder, filename)
+                module_name = filename[:-3]  # remove .py extension
+                spec = importlib.util.spec_from_file_location(module_name, module_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                # Look for classes that are subclasses of BionyxModule (excluding BionyxModule itself)
+                for attribute_name in dir(module):
+                    attribute = getattr(module, attribute_name)
+                    if (
+                        isinstance(attribute, type)
+                        and issubclass(attribute, BionyxModule)
+                        and attribute is not BionyxModule
+                    ):
+                        instance = attribute()
+                        self.modules.append(instance)
+                        print(f"Loaded module: {instance.name}")
 
-    def show_menu(self):
-        menu = (
-            "\n*** MAIN MENU ***\n"
-            "1) Chat\n"
-            "2) Fun Fact\n"
-            "3) Abilities/Help\n"
-            "4) Exit\n"
-        )
-        print(menu)
+    def list_abilities(self):
+        print("Available abilities:")
+        for mod in self.modules:
+            print(f"- {mod.name}: {mod.description}")
+
+    def respond(self, user_input: str) -> str:
+        # Special command for help.
+        if user_input.lower() == "help":
+            self.list_abilities()
+            return ""
+
+        # Iterate over modules to find one that can handle the input.
+        for mod in self.modules:
+            if mod.can_handle(user_input):
+                return mod.handle(user_input)
+        return "I'm not sure how to handle that."
 
     def run(self):
         self.boot()
         while True:
-            choice = input("Enter your choice: ").strip().lower()
-            if choice == "1":
-                self.handle_chat()
-            elif choice == "2":
-                self.handle_fun_fact()
-            elif choice == "3":
-                self.handle_abilities()
-            elif choice == "4":
+            user_input = input("You: ").strip()
+            if user_input.lower() in ["exit", "quit"]:
                 print(f"{self.name}: Goodbye!")
                 break
-            else:
-                print("Invalid choice. Please try again.")
-                self.show_menu()
-
-    def handle_chat(self):
-        chat_module = self.get_module("ChatModule")
-        if chat_module:
-            chat_module.handle()
-        else:
-            print("Chat module not available.")
-
-    def handle_fun_fact(self):
-        fun_fact_module = self.get_module("FunFactModule")
-        if fun_fact_module:
-            fun_fact_module.handle()
-        else:
-            print("Fun Fact module not available.")
-
-    def handle_abilities(self):
-        abilities_module = self.get_module("AbilitiesModule")
-        if abilities_module:
-            abilities_module.handle()
-        else:
-            print("Abilities module not available.")
-
-    def get_module(self, module_name):
-        for mod in self.modules:
-            if mod.name == module_name:
-                return mod
-        return None
+            response = self.respond(user_input)
+            if response:
+                print(f"{self.name}: {response}")
 
 if __name__ == "__main__":
-    from modules import ChatModule, FunFactModule, AbilitiesModule
-
     bionyx = BionyxCore()
-    bionyx.register_module(ChatModule())
-    bionyx.register_module(FunFactModule())
-    bionyx.register_module(AbilitiesModule())
     bionyx.run()
+

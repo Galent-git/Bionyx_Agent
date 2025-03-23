@@ -1,73 +1,58 @@
 
-from memory import MemoryManager
- # core.py
-import os
-import importlib.util
-from module_base import BionyxModule
+import pluggy
+from hookspecs import BionyxSpecs
 
 class BionyxCore:
     def __init__(self, name="Bionyx"):
         self.name = name
-        self.modules = []
-
-    def boot(self):
-        print(f"{self.name}: Hello! I'm {self.name} – your modular AI companion.")
-        self.load_modules()  # Dynamically load all modules in the 'modules' folder.
-        print("Type 'help' to list available commands, or 'exit' to quit.")
-
-    def load_modules(self, modules_folder="modules"):
+        # Create a plugin manager for the "bionyx" project
+        self.pm = pluggy.PluginManager("bionyx")
+        # Register our hook specifications
+        self.pm.add_hookspecs(BionyxSpecs)
+    
+    def load_plugins(self):
         """
-        Dynamically scans the given folder for .py files,
-        imports them, and registers any classes that subclass BionyxModule.
+        Load plugins dynamically. For demonstration, we register plugins manually.
+        In a more advanced setup, you can use setuptools entry points or dynamic discovery.
         """
-        for filename in os.listdir(modules_folder):
-            if filename.endswith(".py") and not filename.startswith("__"):
-                module_path = os.path.join(modules_folder, filename)
-                module_name = filename[:-3]  # remove .py extension
-                spec = importlib.util.spec_from_file_location(module_name, module_path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                # Look for classes that are subclasses of BionyxModule (excluding BionyxModule itself)
-                for attribute_name in dir(module):
-                    attribute = getattr(module, attribute_name)
-                    if (
-                        isinstance(attribute, type)
-                        and issubclass(attribute, BionyxModule)
-                        and attribute is not BionyxModule
-                    ):
-                        instance = attribute()
-                        self.modules.append(instance)
-                        print(f"Loaded module: {instance.name}")
+        # Example: manually import and register plugins from the plugins folder.
+        # Ensure your plugins folder is in the PYTHONPATH.
+        try:
+            from plugins import chat_plugin, funfact_plugin  # these are example plugin modules
+            self.pm.register(chat_plugin.ChatPlugin())
+            self.pm.register(funfact_plugin.FunFactPlugin())
+        except ImportError as e:
+            print(f"Error loading plugins: {e}")
 
     def list_abilities(self):
         print("Available abilities:")
-        for mod in self.modules:
-            print(f"- {mod.name}: {mod.description}")
+        for ability in self.pm.hook.list_abilities():
+            print(f" - {ability}")
 
-    def respond(self, user_input: str) -> str:
-        # Special command for help.
-        if user_input.lower() == "help":
-            self.list_abilities()
-            return ""
-
-        # Iterate over modules to find one that can handle the input.
-        for mod in self.modules:
-            if mod.can_handle(user_input):
-                return mod.handle(user_input)
+    def process_input(self, user_input: str) -> str:
+        # Call all plugins' process_input hook implementations.
+        responses = self.pm.hook.process_input(user_input=user_input)
+        # Filter out empty responses and return the first meaningful answer.
+        responses = [resp for resp in responses if resp]
+        if responses:
+            return responses[0]
         return "I'm not sure how to handle that."
 
     def run(self):
-        self.boot()
+        print(f"{self.name}: Booting up using Pluggy for dynamic modules...")
+        self.load_plugins()
+        print("Type 'help' for a list of abilities or 'exit' to quit.")
         while True:
             user_input = input("You: ").strip()
             if user_input.lower() in ["exit", "quit"]:
                 print(f"{self.name}: Goodbye!")
                 break
-            response = self.respond(user_input)
-            if response:
+            elif user_input.lower() == "help":
+                self.list_abilities()
+            else:
+                response = self.process_input(user_input)
                 print(f"{self.name}: {response}")
 
 if __name__ == "__main__":
-    bionyx = BionyxCore()
-    bionyx.run()
-
+    core = BionyxCore()
+    core.run()

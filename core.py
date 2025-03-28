@@ -17,7 +17,8 @@ class BionyxCore:
         self._register_default_plugins()
         self.memory = MemoryManager()
         self.memory.log_interaction(user_input, response)
-        self.log("Initialized with LLM-first, tools-on-command behavior.")
+        self.memory.store("last_command", user_input)
+        last_cmd = self.memory.recall("last_command")
 
     def _ensure_log_dir_exists(self):
         log_dir = os.path.dirname(self.log_file)

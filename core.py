@@ -4,18 +4,19 @@ import datetime
 from interpreter_runner import run_interpreter_query
 import pluggy
 from hookspecs import BionyxSpecs
+from memory import MemoryManager
+
 
 class BionyxCore:
     def __init__(self, name="Bionyx", log_file="memory_logs/bionyx_log.txt"):
         self.name = name
-        self.log_file = log_file
-
+   
         # Setup plugin manager
         self.pm = pluggy.PluginManager("bionyx")
         self.pm.add_hookspecs(BionyxSpecs)
         self._register_default_plugins()
-
-        self._ensure_log_dir_exists()
+        self.memory = MemoryManager()
+        self.memory.log_interaction(user_input, response)
         self.log("Initialized with LLM-first, tools-on-command behavior.")
 
     def _ensure_log_dir_exists(self):
@@ -23,11 +24,7 @@ class BionyxCore:
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
 
-    def log(self, message: str):
-        timestamp = datetime.datetime.now().isoformat()
-        with open(self.log_file, "a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] {message}\\n")
-
+   
     def _register_default_plugins(self):
         try:
             from plugins import chat_plugin, funfact_plugin

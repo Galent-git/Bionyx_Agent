@@ -1,4 +1,4 @@
-# Bionyx – Your Bioinformatics Copilot
+# Bionyx – Your Bioinformatics Copilot ( In active learning development )
 
 **Bionyx** is a modular AI agent designed to assist with bioinformatics workflows, natural language queries, and exploratory data tasks.
 
